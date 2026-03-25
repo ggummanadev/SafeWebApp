@@ -61,10 +61,11 @@ export default function App() {
   const [currentResult, setCurrentResult] = useState<AnalysisResult | null>(null);
   const [storeApps, setStoreApps] = useState<AnalysisResult[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [view, setView] = useState<"home" | "result" | "store" | "community" | "admin">("home");
+  const [view, setView] = useState<"home" | "result" | "store" | "community" | "admin" | "settings">("home");
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [userApiKey, setUserApiKey] = useState(typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') || "" : "");
   
   // Search and Filter
   const [storeSearch, setStoreSearch] = useState("");
@@ -147,6 +148,12 @@ export default function App() {
     } catch (e) {
       console.error("Logout failed", e);
     }
+  };
+
+  const handleSaveApiKey = (key: string) => {
+    localStorage.setItem('user_gemini_api_key', key);
+    setUserApiKey(key);
+    alert("API Key가 저장되었습니다. 이제 분석 기능을 사용할 수 있습니다.");
   };
 
   const handleAnalyze = async (e?: React.FormEvent, targetUrl?: string) => {
@@ -822,6 +829,84 @@ export default function App() {
     );
   };
 
+  const renderSettings = () => {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-10">
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">환경 설정</h2>
+          <p className="text-slate-500">애플리케이션의 주요 설정을 관리합니다.</p>
+        </div>
+
+        <div className="space-y-8">
+          <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <Zap className="w-6 h-6 text-amber-500" />
+              <h3 className="text-xl font-bold text-slate-900">Gemini API 설정</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-8 leading-relaxed">
+              Vercel 배포 환경에서 분석 기능이 작동하지 않을 경우, 본인의 Gemini API Key를 입력하여 사용할 수 있습니다.
+              입력된 키는 브라우저의 로컬 스토리지에만 안전하게 저장됩니다.
+            </p>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-3">Gemini API Key</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input 
+                    type="password"
+                    value={userApiKey}
+                    onChange={(e) => setUserApiKey(e.target.value)}
+                    placeholder="AI Studio에서 발급받은 API Key를 입력하세요"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none font-mono text-sm"
+                  />
+                  <button 
+                    onClick={() => handleSaveApiKey(userApiKey)}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all whitespace-nowrap shadow-lg shadow-blue-100"
+                  >
+                    저장하기
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3 p-5 bg-blue-50 rounded-2xl text-blue-700 text-sm leading-relaxed border border-blue-100">
+                <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-bold mb-2 text-blue-800">API Key 발급 방법:</p>
+                  <ol className="list-decimal ml-4 space-y-2">
+                    <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-blue-900 transition-colors">Google AI Studio</a>에 접속합니다.</li>
+                    <li>'Create API key' 버튼을 클릭하여 새 키를 발급받습니다.</li>
+                    <li>발급받은 키를 위 입력창에 붙여넣고 저장하세요.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm opacity-80">
+            <div className="flex items-center gap-3 mb-6">
+              <User className="w-6 h-6 text-slate-400" />
+              <h3 className="text-xl font-bold text-slate-900">사용자 정보</h3>
+            </div>
+            {user ? (
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-slate-400 border border-slate-200 font-bold text-xl">
+                  {user.displayName?.[0]}
+                </div>
+                <div>
+                  <p className="font-bold text-lg text-slate-900">{user.displayName}</p>
+                  <p className="text-slate-500">{user.email}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-500 italic p-4 bg-slate-50 rounded-2xl border border-slate-100">로그인 정보가 없습니다.</p>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
       {/* Navigation */}
@@ -870,6 +955,16 @@ export default function App() {
                   관리자
                 </button>
               )}
+              <button 
+                onClick={() => setView("settings")}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  view === "settings" ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-slate-50"
+                )}
+                title="설정"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
               
               <div className="h-6 w-px bg-slate-200 mx-2" />
               
@@ -960,6 +1055,16 @@ export default function App() {
                     관리자
                   </button>
                 )}
+                <button 
+                  onClick={() => { setView("settings"); setIsMenuOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold transition-all",
+                    view === "settings" ? "bg-blue-50 text-blue-600" : "text-slate-600 bg-slate-50"
+                  )}
+                >
+                  <Settings className="w-5 h-5" />
+                  설정
+                </button>
                 {!user && (
                   <button 
                     onClick={() => { handleLogin(); setIsMenuOpen(false); }}
@@ -1036,6 +1141,16 @@ export default function App() {
               exit={{ opacity: 0 }}
             >
               {renderAdmin()}
+            </motion.div>
+          )}
+          {view === "settings" && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {renderSettings()}
             </motion.div>
           )}
         </AnimatePresence>

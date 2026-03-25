@@ -1,12 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = () => {
+  // Check localStorage first for user-provided key
+  const userKey = typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') : null;
+  
   // In Vercel, environment variables are accessed via process.env
   // For client-side Vite apps, they might be prefixed with VITE_
-  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
+  const apiKey = userKey || process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
   
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. Vercel 환경 변수 설정을 확인해주세요.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. [설정] 메뉴에서 API Key를 입력하거나 Vercel 환경 변수 설정을 확인해주세요.");
   }
   
   return new GoogleGenAI({ apiKey });
