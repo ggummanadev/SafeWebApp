@@ -22,11 +22,12 @@ export async function getBasicAnalysis(url: string) {
       model: "gemini-3-flash-preview",
       contents: `너는 웹 보안 및 구조 분석 전문가야. 입력되는 웹사이트 URL(${url})을 분석하여 다음 항목을 포함한 **[기초 분석 리포트]**를 작성해줘.
 
-제작 방식: 바이브코딩(Vercel, Replit, 노코드 툴 등) 특유의 패턴이 보이는지, 커스텀 개발인지 판별.
-인증 구조: 회원가입/로그인 폼 존재 여부 및 소셜 로그인 연동 여부.
-설치 형태: 단순 Web인지, PWA(설치형) 기능이 포함되어 있는지.
-데이터 민감도: input type="password", email, tel 등의 태그를 분석해 개인정보 요구 수준을 '낮음/중간/높음'으로 분류.
-서비스 성격: 정보제공/도구/광고/커뮤니티 중 가장 가까운 성격 정의.
+1. 제작 방식: 바이브코딩(Vercel, Replit, 노코드 툴 등) 특유의 패턴이 보이는지, 커스텀 개발인지 판별.
+2. 인증 구조: 회원가입/로그인 폼 존재 여부 및 소셜 로그인 연동 여부.
+3. 설치 형태: 단순 Web인지, PWA(설치형) 기능이 포함되어 있는지.
+4. 데이터 민감도: input type="password", email, tel 등의 태그를 분석해 개인정보 요구 수준을 '낮음/중간/높음'으로 분류.
+5. 서비스 성격: 정보제공/도구/광고/커뮤니티 중 가장 가까운 성격 정의.
+6. OWASP Top 10 취약점: 해당 사이트의 공개된 구조에서 추정 가능한 OWASP Top 10 보안 취약점(인젝션, 인증 실패, 민감 데이터 노출 등)에 대한 간략한 위험도 평가.
 
 결과는 반드시 사용자가 한눈에 볼 수 있게 표(Table) 형식으로 출력해줘.`,
     });
@@ -90,6 +91,34 @@ JSON 형식:
   } catch (error: any) {
     console.error("Gemini API Error (getAppSummary):", error);
     return { name: url, category: "기타", serviceDescription: "분석된 웹 서비스", securitySummary: "분석 완료", isSafe: false };
+  }
+}
+
+export async function getOwaspAnalysis(basicReport: string) {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `다음 보안 리포트를 바탕으로 OWASP Top 10 주요 보안 취약점 항목별로 위험도를 분석해줘.
+리포트:
+${basicReport}
+
+JSON 형식:
+{
+  "owasp": [
+    { "item": "항목 이름 (예: A01:2021-Broken Access Control)", "status": "safe | warning | danger", "desc": "취약점 설명 및 분석 결과" }
+  ]
+}
+최소 5개 이상의 주요 항목을 포함해줘.`,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+    
+    return JSON.parse(response.text || "{}");
+  } catch (error: any) {
+    console.error("Gemini API Error (getOwaspAnalysis):", error);
+    return { owasp: [] };
   }
 }
 

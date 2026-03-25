@@ -31,7 +31,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import { cn } from "./lib/utils";
-import { getBasicAnalysis, getDeepAnalysisGuide, getAppSummary, getStructuredAnalysis } from "./services/gemini";
+import { getBasicAnalysis, getDeepAnalysisGuide, getAppSummary, getStructuredAnalysis, getOwaspAnalysis } from "./services/gemini";
 import { AnalysisResult, Post, AppInfo, AdminSettings } from "./types";
 import { 
   auth, 
@@ -52,8 +52,59 @@ import {
   orderBy, 
   limit, 
   where,
-  User as FirebaseUser
+  User as FirebaseUser,
+  handleFirestoreError,
+  OperationType
 } from "./firebase";
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      let errorMessage = "알 수 없는 오류가 발생했습니다.";
+      try {
+        const parsedError = JSON.parse(this.state.error.message);
+        if (parsedError.error && parsedError.error.includes("insufficient permissions")) {
+          errorMessage = "권한이 부족하여 작업을 수행할 수 없습니다. 관리자에게 문의하세요.";
+        }
+      } catch (e) {
+        errorMessage = this.state.error.message || errorMessage;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">오류가 발생했습니다</h2>
+            <p className="text-slate-600 mb-8">{errorMessage}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -175,6 +226,7 @@ export default function App() {
       const summary = await getAppSummary(normalizedUrl, basicReport);
       const deepGuide = await getDeepAnalysisGuide(normalizedUrl, basicReport);
       const structured = await getStructuredAnalysis(basicReport);
+      const owasp = await getOwaspAnalysis(basicReport);
 
       const result: AnalysisResult = {
         url: normalizedUrl,
@@ -187,9 +239,10 @@ export default function App() {
         basicReport,
         deepGuide,
         structuredPoints: structured.points || [],
+        owaspAnalysis: owasp.owasp || [],
         timestamp: Date.now(),
         thumbnail: `https://picsum.photos/seed/${encodeURIComponent(summary.name || normalizedUrl)}/400/300`,
-        isSafe: summary.isSafe
+        isSafe: !!summary.isSafe
       };
 
       setCurrentResult(result);
@@ -212,7 +265,11 @@ export default function App() {
 
     setIsRegistering(true);
     try {
-      const appId = btoa(currentResult.url).replace(/=/g, "");
+      // UTF-8 safe base64 and URL-safe for Firestore ID (replace + with - and / with _)
+      const appId = btoa(unescape(encodeURIComponent(currentResult.url)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
       await setDoc(doc(db, "apps", appId), {
         ...currentResult,
         password: regPassword,
@@ -230,19 +287,25 @@ export default function App() {
   };
 
   const handleDeleteApp = async (app: AnalysisResult) => {
-    if (isAdmin) {
-      if (confirm("관리자 권한으로 삭제하시겠습니까?")) {
-        await deleteDoc(doc(db, "apps", app.id!));
+    try {
+      if (isAdmin) {
+        if (confirm("관리자 권한으로 삭제하시겠습니까?")) {
+          await deleteDoc(doc(db, "apps", app.id!));
+          alert("삭제되었습니다.");
+        }
+        return;
       }
-      return;
-    }
 
-    const pw = prompt("등록 시 설정한 비밀번호를 입력하세요.");
-    if (pw === app.password) {
-      await deleteDoc(doc(db, "apps", app.id!));
-      alert("삭제되었습니다.");
-    } else if (pw !== null) {
-      alert("비밀번호가 일치하지 않습니다.");
+      const pw = prompt("등록 시 설정한 비밀번호를 입력하세요.");
+      if (pw === app.password) {
+        await deleteDoc(doc(db, "apps", app.id!));
+        alert("삭제되었습니다.");
+      } else if (pw !== null) {
+        alert("비밀번호가 일치하지 않습니다.");
+      }
+    } catch (e) {
+      console.error("Deletion failed", e);
+      handleFirestoreError(e, OperationType.DELETE, `apps/${app.id}`);
     }
   };
 
@@ -554,6 +617,34 @@ export default function App() {
               <Markdown>{currentResult.basicReport}</Markdown>
             </div>
           </section>
+
+          {/* OWASP Top 10 Analysis */}
+          {currentResult.owaspAnalysis && currentResult.owaspAnalysis.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-2">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
+                <h3 className="text-xl font-bold text-slate-900">OWASP Top 10 보안 취약점 검사</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                {currentResult.owaspAnalysis.map((item, i) => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className={cn(
+                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 text-center w-16",
+                      item.status === 'safe' ? "bg-green-100 text-green-700" :
+                      item.status === 'warning' ? "bg-amber-100 text-amber-700" :
+                      "bg-red-100 text-red-700"
+                    )}>
+                      {item.status === 'safe' ? '안전' : item.status === 'warning' ? '주의' : '위험'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 text-sm mb-1">{item.item}</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Deep Analysis Guide */}
           {currentResult.deepGuide && (
@@ -908,7 +999,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1168,5 +1260,6 @@ export default function App() {
         </div>
       </footer>
     </div>
+    </ErrorBoundary>
   );
 }

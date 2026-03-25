@@ -11,8 +11,9 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/settings/admins).data.adminEmails.hasAny([request.auth.token.email]) || 
-         request.auth.token.email == "jabang78@gmail.com");
+        (request.auth.token.email == "jabang78@gmail.com" || 
+         (exists(/databases/$(database)/documents/settings/admins) && 
+          get(/databases/$(database)/documents/settings/admins).data.adminEmails.hasAny([request.auth.token.email])));
     }
 
     function isDocOwner(docData) {
@@ -38,7 +39,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidApp(request.resource.data) && request.resource.data.isSafe == true;
       allow update: if isAdmin() || (request.resource.data.password == resource.data.password);
-      allow delete: if isAdmin() || (request.resource.data.password == resource.data.password);
+      allow delete: if isAdmin() || (resource.data.password != null && resource.data.password != "");
     }
 
     match /posts/{postId} {

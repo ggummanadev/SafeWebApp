@@ -10,6 +10,7 @@ export interface AnalysisResult {
   basicReport?: string;
   deepGuide?: string;
   structuredPoints?: { icon: string; title: string; desc: string }[];
+  owaspAnalysis?: { item: string; status: 'safe' | 'warning' | 'danger'; desc: string }[];
   timestamp: number;
   thumbnail?: string;
   isSafe?: boolean;
