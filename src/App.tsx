@@ -79,6 +79,8 @@ export default function App() {
   // Admin State
   const [newAdminEmail, setNewAdminEmail] = useState("");
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -184,9 +186,10 @@ export default function App() {
       };
 
       setCurrentResult(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed", error);
-      alert("분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      const errorMsg = error.message || "분석 중 오류가 발생했습니다.";
+      alert(`${errorMsg}\n다시 시도해주세요.`);
       setView("home");
     } finally {
       setIsAnalyzing(false);
@@ -358,28 +361,30 @@ export default function App() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-16 p-10 border-2 border-blue-500 rounded-[2rem] bg-white shadow-xl shadow-blue-50"
+        className="mb-16 p-6 sm:p-10 border-2 border-blue-500 rounded-[2rem] bg-white shadow-xl shadow-blue-50"
       >
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-8 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mb-8 text-center">
           새로운 웹사이트 분석하기
         </h1>
         <form onSubmit={handleAnalyze} className="w-full max-w-2xl mx-auto mb-10">
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-              <Search className="w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+          <div className="relative flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                <Search className="w-5 h-5 text-slate-400" />
+              </div>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com"
+                required
+                className="block w-full p-4 pl-12 text-base sm:text-lg text-slate-900 border border-slate-200 rounded-2xl bg-white shadow-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+              />
             </div>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              required
-              className="block w-full p-4 pl-12 text-lg text-slate-900 border border-slate-200 rounded-2xl bg-white shadow-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-            />
             <button
               type="submit"
               disabled={isAnalyzing}
-              className="absolute right-2 top-2 bottom-2 px-6 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+              className="px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
             >
               {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : "분석 시작"}
             </button>
@@ -404,76 +409,52 @@ export default function App() {
   );
 
   const renderResult = () => (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
       <button 
         onClick={() => setView("home")}
-        className="mb-6 flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors"
+        className="mb-6 flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors text-sm"
       >
         <ArrowRight className="w-4 h-4 rotate-180" />
         홈으로 돌아가기
       </button>
 
       {isAnalyzing ? (
-        <div className="flex flex-col items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">웹사이트 분석 중...</h2>
-          <p className="text-slate-500">Gemini AI가 사이트 구조와 보안 요소를 뜯어보고 있습니다.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">웹사이트 분석 중...</h2>
+          <p className="text-slate-500 text-sm sm:text-base px-4">Gemini AI가 사이트 구조와 보안 요소를 뜯어보고 있습니다.</p>
         </div>
       ) : currentResult ? (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* Summary Card */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xl shadow-slate-100 relative overflow-hidden"
+            className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-100 relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 p-6 flex flex-col items-end gap-2">
-              <div className="flex gap-2">
-                <div className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all",
-                  currentResult.isBasicVerified 
-                    ? "bg-green-50 text-green-700 border-green-100 saturate-100" 
-                    : "bg-slate-50 text-slate-400 border-slate-100 grayscale"
-                )}>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Basic Check ✔
-                </div>
-                <div className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all",
-                  currentResult.isDeepVerified 
-                    ? "bg-amber-50 text-amber-700 border-amber-100 saturate-100" 
-                    : "bg-slate-50 text-slate-400 border-slate-100 grayscale"
-                )}>
-                  <Star className={cn("w-3.5 h-3.5", currentResult.isDeepVerified && "fill-amber-500 text-amber-500")} />
-                  Deep Scan ★
-                </div>
+            <div className="flex flex-wrap gap-2 mb-6">
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold border transition-all",
+                currentResult.isBasicVerified 
+                  ? "bg-green-50 text-green-700 border-green-100" 
+                  : "bg-slate-50 text-slate-400 border-slate-100"
+              )}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Basic Check ✔
               </div>
-              
-              {currentResult.isSafe && (
-                <div className="mt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input 
-                      type="password" 
-                      placeholder="등록 비밀번호"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 outline-none"
-                    />
-                    <button
-                      onClick={handleRegisterToStore}
-                      disabled={isRegistering || !regPassword}
-                      className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : "웹앱 스토어 등록"}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-400 text-right">안전한 사이트로 판명되어 등록이 가능합니다.</p>
-                </div>
-              )}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold border transition-all",
+                currentResult.isDeepVerified 
+                  ? "bg-amber-50 text-amber-700 border-amber-100" 
+                  : "bg-slate-50 text-slate-400 border-slate-100"
+              )}>
+                <Star className={cn("w-3.5 h-3.5", currentResult.isDeepVerified && "fill-amber-500 text-amber-500")} />
+                Deep Scan ★
+              </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8 items-start">
-              <div className="w-32 h-32 bg-slate-100 rounded-3xl overflow-hidden flex-shrink-0 shadow-inner">
+            <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start mb-8">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-100 rounded-3xl overflow-hidden flex-shrink-0 shadow-inner">
                 <img 
                   src={currentResult.thumbnail} 
                   alt={currentResult.name} 
@@ -481,30 +462,56 @@ export default function App() {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="flex-1">
-                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="flex-1 min-w-0">
+                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
                   {currentResult.category}
                 </span>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">{currentResult.name}</h2>
-                <p className="text-slate-600 font-medium mb-2">{currentResult.serviceDescription}</p>
-                <p className="text-slate-400 text-sm flex items-center gap-1">
-                  <ExternalLink className="w-4 h-4" />
-                  <a href={currentResult.url} target="_blank" rel="noreferrer" className="hover:underline">
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2 truncate">{currentResult.name}</h2>
+                <p className="text-slate-600 font-medium mb-3 text-sm sm:text-base">{currentResult.serviceDescription}</p>
+                <p className="text-slate-400 text-xs sm:text-sm flex items-center gap-1 overflow-hidden">
+                  <ExternalLink className="w-4 h-4 shrink-0" />
+                  <a href={currentResult.url} target="_blank" rel="noreferrer" className="hover:underline truncate">
                     {currentResult.url}
                   </a>
                 </p>
               </div>
             </div>
 
-            <div className="mt-8 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
+            <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100 mb-8">
               <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                <Shield className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">보안 상태 요약</h4>
                   <p className="text-slate-600 text-sm leading-relaxed">{currentResult.securitySummary}</p>
                 </div>
               </div>
             </div>
+
+            {currentResult.isSafe && (
+              <div className="pt-6 border-t border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-green-600">
+                  <ShieldCheck className="w-5 h-5 shrink-0" />
+                  <p className="text-xs sm:text-sm font-bold">안전한 사이트로 판명되어 스토어 등록이 가능합니다.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+                  <input 
+                    type="password" 
+                    placeholder="등록 비밀번호"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="w-full sm:w-40 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none"
+                  />
+                  <button
+                    onClick={handleRegisterToStore}
+                    disabled={isRegistering || !regPassword}
+                    className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    웹앱 스토어 등록
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
 
           {/* Structured Points */}
@@ -593,7 +600,7 @@ export default function App() {
               className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group flex items-center gap-6"
             >
               <div 
-                className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100 cursor-pointer"
+                className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100 cursor-pointer"
                 onClick={() => {
                   setCurrentResult(item);
                   setView("result");
@@ -608,33 +615,41 @@ export default function App() {
               </div>
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 
-                    className="font-bold text-slate-900 text-lg truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setCurrentResult(item);
-                      setView("result");
-                    }}
-                  >
-                    {item.name}
-                  </h3>
-                  <div className="flex gap-1">
-                    <CheckCircle2 className={cn("w-4 h-4", item.isBasicVerified ? "text-green-500 saturate-100" : "text-slate-200 grayscale")} />
-                    <Star className={cn("w-4 h-4", item.isDeepVerified ? "text-amber-500 fill-amber-500 saturate-100" : "text-slate-200 grayscale")} />
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 
+                      className="font-bold text-slate-900 text-base sm:text-lg truncate group-hover:text-blue-600 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setCurrentResult(item);
+                        setView("result");
+                      }}
+                    >
+                      {item.name}
+                    </h3>
+                    <div className="flex gap-1 shrink-0">
+                      <CheckCircle2 className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", item.isBasicVerified ? "text-green-500 saturate-100" : "text-slate-200 grayscale")} />
+                      <Star className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", item.isDeepVerified ? "text-amber-500 fill-amber-500 saturate-100" : "text-slate-200 grayscale")} />
+                    </div>
                   </div>
+                  <button 
+                    onClick={() => handleDeleteApp(item)}
+                    className="p-2 text-slate-300 hover:text-red-500 transition-colors md:hidden"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <p className="text-sm text-slate-500 mb-1 truncate">{item.serviceDescription}</p>
+                <p className="text-xs sm:text-sm text-slate-500 mb-2 line-clamp-1">{item.serviceDescription}</p>
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
                     {item.category}
                   </span>
-                  <span className="text-[10px] font-medium text-slate-400">
+                  <span className="text-[9px] sm:text-[10px] font-medium text-slate-400">
                     {new Date(item.timestamp).toLocaleDateString()}
                   </span>
                 </div>
               </div>
 
-              <div className="flex-shrink-0 flex items-center gap-4">
+              <div className="hidden md:flex flex-shrink-0 items-center gap-4">
                 <button 
                   onClick={() => handleDeleteApp(item)}
                   className="p-2 text-slate-300 hover:text-red-500 transition-colors"
@@ -814,14 +829,18 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div 
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => setView("home")}
+              className="flex items-center gap-2 cursor-pointer shrink-0"
+              onClick={() => {
+                setView("home");
+                setIsMenuOpen(false);
+              }}
             >
-              <ShieldCheck className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold tracking-tight text-slate-900">웹앱모음 (SafeWebApp)</span>
+              <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">웹앱모음</span>
             </div>
             
-            <div className="flex items-center gap-4">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-4">
               <button 
                 onClick={() => setView("store")}
                 className={cn(
@@ -856,7 +875,7 @@ export default function App() {
               
               {user ? (
                 <div className="flex items-center gap-3">
-                  <div className="text-right hidden sm:block">
+                  <div className="text-right hidden lg:block">
                     <p className="text-xs font-bold text-slate-900">{user.displayName}</p>
                     <p className="text-[10px] text-slate-400">{user.email}</p>
                   </div>
@@ -878,8 +897,93 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden flex items-center gap-3">
+              {user && (
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              )}
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+              >
+                {isMenuOpen ? <Plus className="w-6 h-6 rotate-45" /> : <LayoutGrid className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden border-t border-slate-100 bg-white overflow-hidden"
+            >
+              <div className="px-4 py-6 space-y-4">
+                <button 
+                  onClick={() => { setView("store"); setIsMenuOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold transition-all",
+                    view === "store" ? "bg-blue-50 text-blue-600" : "text-slate-600 bg-slate-50"
+                  )}
+                >
+                  <AppWindow className="w-5 h-5" />
+                  웹앱 스토어
+                </button>
+                <button 
+                  onClick={() => { setView("community"); setIsMenuOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold transition-all",
+                    view === "community" ? "bg-blue-50 text-blue-600" : "text-slate-600 bg-slate-50"
+                  )}
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  커뮤니티
+                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => { setView("admin"); setIsMenuOpen(false); }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold transition-all",
+                      view === "admin" ? "bg-blue-50 text-blue-600" : "text-slate-600 bg-slate-50"
+                    )}
+                  >
+                    <Settings className="w-5 h-5" />
+                    관리자
+                  </button>
+                )}
+                {!user && (
+                  <button 
+                    onClick={() => { handleLogin(); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-blue-600 text-white rounded-xl text-base font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    구글 로그인
+                  </button>
+                )}
+                {user && (
+                  <div className="p-4 bg-slate-50 rounded-xl flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                      {user.displayName?.[0]}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="text-sm font-bold text-slate-900 truncate">{user.displayName}</p>
+                      <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       <main className="py-6">
