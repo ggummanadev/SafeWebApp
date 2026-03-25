@@ -1,0 +1,85 @@
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+export async function getBasicAnalysis(url: string) {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `너는 웹 보안 및 구조 분석 전문가야. 입력되는 웹사이트 URL(${url})을 분석하여 다음 항목을 포함한 **[기초 분석 리포트]**를 작성해줘.
+
+제작 방식: 바이브코딩(Vercel, Replit, 노코드 툴 등) 특유의 패턴이 보이는지, 커스텀 개발인지 판별.
+인증 구조: 회원가입/로그인 폼 존재 여부 및 소셜 로그인 연동 여부.
+설치 형태: 단순 Web인지, PWA(설치형) 기능이 포함되어 있는지.
+데이터 민감도: input type="password", email, tel 등의 태그를 분석해 개인정보 요구 수준을 '낮음/중간/높음'으로 분류.
+서비스 성격: 정보제공/도구/광고/커뮤니티 중 가장 가까운 성격 정의.
+
+결과는 반드시 사용자가 한눈에 볼 수 있게 표(Table) 형식으로 출력해줘.`,
+  });
+  return response.text;
+}
+
+export async function getDeepAnalysisGuide(url: string, basicReport: string) {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `너는 'SafeWebApp'의 보안 가이드 AI야. 다음 기초 분석 결과를 바탕으로 '개인정보 요구'가 높거나 '출처 불분명'으로 판명된 사이트(${url})에 대해 정밀 분석 가이드를 작성해줘.
+
+기초 분석 결과:
+${basicReport}
+
+수행 작업:
+1. 도구 추천: Sucuri(악성코드), UpGuard(보안등급), VirusTotal(URL 검사) 중 가장 적합한 도구 2개를 매칭해줘.
+2. 사용자 가이드: 선택된 도구의 링크를 제공하고, 해당 사이트에 접속했을 때 '어떤 버튼을 누르고 어떤 결과값(예: Clean, A-Grade 등)을 확인해야 하는지' 초보자 눈높이에서 3단계로 설명해줘.
+3. 비용 정보: 해당 도구가 무료인지, 부분 유료인지 명시해줘.`,
+  });
+  return response.text;
+}
+
+export async function getAppSummary(url: string, basicReport: string) {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `다음 웹사이트(${url})의 분석 리포트를 바탕으로 앱 이름, 카테고리, 서비스 내용(어떤 서비스인지), 보안 상태 요약, 그리고 '안전한 사이트' 여부(true/false)를 JSON 형식으로 추출해줘.
+리포트:
+${basicReport}
+
+JSON 형식:
+{
+  "name": "앱 이름",
+  "category": "카테고리 (예: 금융, 쇼핑, 도구 등)",
+  "serviceDescription": "어떤 서비스인지에 대한 간단한 설명 (한 문장)",
+  "securitySummary": "보안 상태 요약 (한 문장)",
+  "isSafe": true 또는 false (보안상 큰 위협이 없고 신뢰할 수 있는 경우 true)
+}`,
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+  try {
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    return { name: url, category: "기타", serviceDescription: "분석된 웹 서비스", securitySummary: "분석 완료", isSafe: false };
+  }
+}
+
+export async function getStructuredAnalysis(basicReport: string) {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `다음 텍스트 기반 보안 리포트를 시각적으로 표현하기 좋게 4~5개의 핵심 포인트(아이콘 키워드 포함)로 요약해줘.
+리포트:
+${basicReport}
+
+JSON 형식:
+{
+  "points": [
+    { "icon": "Shield | Lock | User | Globe | Zap", "title": "제목", "desc": "짧은 설명" }
+  ]
+}`,
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+  try {
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    return { points: [] };
+  }
+}

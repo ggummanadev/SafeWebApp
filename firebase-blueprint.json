@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "App": {
+      "title": "App",
+      "description": "등록된 웹앱 정보",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "serviceDescription": { "type": "string" },
+        "securitySummary": { "type": "string" },
+        "isBasicVerified": { "type": "boolean" },
+        "isDeepVerified": { "type": "boolean" },
+        "basicReport": { "type": "string" },
+        "deepGuide": { "type": "string" },
+        "structuredPoints": { "type": "array" },
+        "timestamp": { "type": "number" },
+        "thumbnail": { "type": "string" },
+        "password": { "type": "string" },
+        "isSafe": { "type": "boolean" }
+      },
+      "required": ["url", "name", "password", "isSafe"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "커뮤니티 게시글",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["title", "content", "authorUid"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "시스템 설정",
+      "type": "object",
+      "properties": {
+        "adminEmails": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "firestore": {
+    "/apps/{appId}": {
+      "schema": "App",
+      "description": "등록된 웹앱 컬렉션"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "커뮤니티 게시글 컬렉션"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "시스템 설정 컬렉션"
+    }
+  }
+}

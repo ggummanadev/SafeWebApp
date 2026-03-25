@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/settings/admins).data.adminEmails.hasAny([request.auth.token.email]) || 
+         request.auth.token.email == "jabang78@gmail.com");
+    }
+
+    function isDocOwner(docData) {
+      return isAuthenticated() && request.auth.uid == docData.authorUid;
+    }
+
+    function isValidApp(data) {
+      return data.url is string && data.url.size() > 0 &&
+             data.name is string && data.name.size() > 0 &&
+             data.password is string && data.password.size() >= 4;
+    }
+
+    function isValidPost(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /apps/{appId} {
+      allow read: if true;
+      allow create: if isValidApp(request.resource.data) && request.resource.data.isSafe == true;
+      allow update: if isAdmin() || (request.resource.data.password == resource.data.password);
+      allow delete: if isAdmin() || (request.resource.data.password == resource.data.password);
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidPost(request.resource.data);
+      allow update, delete: if isAdmin() || isDocOwner(resource.data);
+    }
+
+    match /settings/{settingId} {
+      allow read: if true; // Publicly check if admin
+      allow write: if isAdmin();
+    }
+  }
+}

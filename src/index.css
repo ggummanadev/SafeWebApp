@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+/* Markdown styling */
+.prose {
+  @apply text-slate-600 leading-relaxed;
+}
+
+.prose h1, .prose h2, .prose h3 {
+  @apply text-slate-900 font-bold mt-6 mb-4;
+}
+
+.prose h1 { @apply text-2xl; }
+.prose h2 { @apply text-xl; }
+.prose h3 { @apply text-lg; }
+
+.prose table {
+  @apply w-full border-collapse my-6;
+}
+
+.prose th {
+  @apply bg-slate-50 text-slate-900 font-bold p-3 text-left border border-slate-200;
+}
+
+.prose td {
+  @apply p-3 border border-slate-200;
+}
+
+.prose ul {
+  @apply list-disc list-inside my-4 space-y-2;
+}
+
+.prose strong {
+  @apply text-slate-900 font-bold;
+}
+
+.prose a {
+  @apply text-blue-600 hover:underline;
+}
