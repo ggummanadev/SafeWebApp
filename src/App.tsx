@@ -6,6 +6,7 @@ import {
   Star, 
   AlertTriangle, 
   ExternalLink, 
+  FileText,
   Info, 
   Loader2,
   ArrowRight,
@@ -19,6 +20,9 @@ import {
   TrendingUp,
   AppWindow,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Menu,
   Download,
   MessageSquare,
   Settings,
@@ -116,6 +120,13 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  
+  // Delete Modal State
+  const [appToDelete, setAppToDelete] = useState<AnalysisResult | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   const [userApiKey, setUserApiKey] = useState(typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') || "" : "");
   
   // Search and Filter
@@ -132,6 +143,10 @@ export default function App() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Expand/Collapse State
+  const [isReportExpanded, setIsReportExpanded] = useState(true);
+  const [isGuideExpanded, setIsGuideExpanded] = useState(true);
 
   // Auth Listener
   useEffect(() => {
@@ -220,6 +235,8 @@ export default function App() {
     setIsAnalyzing(true);
     setView("result");
     setCurrentResult(null);
+    setIsReportExpanded(true);
+    setIsGuideExpanded(true);
     
     try {
       const basicReport = await getBasicAnalysis(normalizedUrl);
@@ -287,25 +304,41 @@ export default function App() {
   };
 
   const handleDeleteApp = async (app: AnalysisResult) => {
+    setAppToDelete(app);
+    setDeletePassword("");
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!appToDelete) return;
+    
     try {
-      if (isAdmin) {
-        if (confirm("관리자 권한으로 삭제하시겠습니까?")) {
-          await deleteDoc(doc(db, "apps", app.id!));
-          alert("삭제되었습니다.");
+      setIsDeleting(true);
+      setDeleteError("");
+
+      // If not admin, check password
+      if (!isAdmin) {
+        if (!deletePassword) {
+          setDeleteError("비밀번호를 입력해주세요.");
+          setIsDeleting(false);
+          return;
         }
-        return;
+        if (deletePassword !== appToDelete.password) {
+          setDeleteError("비밀번호가 일치하지 않습니다.");
+          setIsDeleting(false);
+          return;
+        }
       }
 
-      const pw = prompt("등록 시 설정한 비밀번호를 입력하세요.");
-      if (pw === app.password) {
-        await deleteDoc(doc(db, "apps", app.id!));
-        alert("삭제되었습니다.");
-      } else if (pw !== null) {
-        alert("비밀번호가 일치하지 않습니다.");
-      }
+      await deleteDoc(doc(db, "apps", appToDelete.id!));
+      setAppToDelete(null);
+      alert("삭제되었습니다.");
     } catch (e) {
       console.error("Deletion failed", e);
-      handleFirestoreError(e, OperationType.DELETE, `apps/${app.id}`);
+      setDeleteError("삭제 중 오류가 발생했습니다.");
+      handleFirestoreError(e, OperationType.DELETE, `apps/${appToDelete.id}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -405,6 +438,8 @@ export default function App() {
               onClick={() => {
                 setCurrentResult(app);
                 setView("result");
+                setIsReportExpanded(false);
+                setIsGuideExpanded(false);
               }}
               className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer text-center group"
             >
@@ -547,6 +582,42 @@ export default function App() {
               </div>
             </div>
 
+            {/* Website Preview & Main Menus Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="px-4 py-3 bg-slate-100/50 border-b border-slate-100 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-slate-500" />
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">Website Preview</span>
+                </div>
+                <div className="aspect-video relative group">
+                  <img 
+                    src={currentResult.thumbnail} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Menu className="w-4 h-4 text-blue-600" />
+                  <h4 className="font-bold text-slate-900 text-sm">주요 메뉴 목록</h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {currentResult.mainMenus && currentResult.mainMenus.length > 0 ? (
+                    currentResult.mainMenus.map((menu, idx) => (
+                      <span key={idx} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 shadow-sm">
+                        {menu}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">추출된 메뉴가 없습니다.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100 mb-8">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
@@ -607,16 +678,30 @@ export default function App() {
             </div>
           )}
 
-          {/* Basic Analysis Report */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-2">
-              <Info className="w-5 h-5 text-blue-600" />
-              <h3 className="text-xl font-bold text-slate-900">상세 분석 리포트</h3>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 prose prose-slate max-w-none shadow-sm overflow-x-auto">
-              <Markdown>{currentResult.basicReport}</Markdown>
-            </div>
-          </section>
+          {/* Detailed Analysis Report */}
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <button 
+              onClick={() => setIsReportExpanded(!isReportExpanded)}
+              className="w-full px-6 py-4 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors border-b border-slate-100"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-bold text-slate-900">상세 분석 리포트</h3>
+              </div>
+              {isReportExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+            </button>
+            <motion.div 
+              initial={false}
+              animate={{ height: isReportExpanded ? "auto" : 0, opacity: isReportExpanded ? 1 : 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-6 sm:p-8 prose prose-slate max-w-none">
+                <div className="markdown-body">
+                  <Markdown>{currentResult.basicReport}</Markdown>
+                </div>
+              </div>
+            </motion.div>
+          </div>
 
           {/* OWASP Top 10 Analysis */}
           {currentResult.owaspAnalysis && currentResult.owaspAnalysis.length > 0 && (
@@ -647,17 +732,29 @@ export default function App() {
           )}
 
           {/* Deep Analysis Guide */}
-          {currentResult.deepGuide && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 px-2">
-                <ShieldCheck className="w-5 h-5 text-amber-600" />
-                <h3 className="text-xl font-bold text-slate-900">정밀 분석 가이드</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <button 
+              onClick={() => setIsGuideExpanded(!isGuideExpanded)}
+              className="w-full px-6 py-4 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors border-b border-slate-100"
+            >
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-bold text-slate-900">정밀 분석 가이드</h3>
               </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 prose prose-amber max-w-none shadow-sm">
-                <Markdown>{currentResult.deepGuide}</Markdown>
+              {isGuideExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+            </button>
+            <motion.div 
+              initial={false}
+              animate={{ height: isGuideExpanded ? "auto" : 0, opacity: isGuideExpanded ? 1 : 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-6 sm:p-8 prose prose-amber max-w-none bg-amber-50/30">
+                <div className="markdown-body">
+                  <Markdown>{currentResult.deepGuide}</Markdown>
+                </div>
               </div>
-            </section>
-          )}
+            </motion.div>
+          </div>
         </div>
       ) : null}
     </div>
@@ -760,6 +857,8 @@ export default function App() {
                   onClick={() => {
                     setCurrentResult(item);
                     setView("result");
+                    setIsReportExpanded(false);
+                    setIsGuideExpanded(false);
                   }}
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -998,9 +1097,74 @@ export default function App() {
     );
   };
 
+  const renderDeleteModal = () => {
+    if (!appToDelete) return null;
+
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+        >
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          
+          <h3 className="text-2xl font-bold text-slate-900 text-center mb-2">앱 삭제</h3>
+          <p className="text-slate-500 text-center mb-8">
+            <span className="font-bold text-slate-900">"{appToDelete.name}"</span> 앱을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+          </p>
+
+          {!isAdmin && (
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-slate-700 mb-2">등록 시 설정한 비밀번호</label>
+              <input 
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="비밀번호 입력"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+              />
+            </div>
+          )}
+
+          {deleteError && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {deleteError}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setAppToDelete(null)}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button 
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-100 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                "삭제하기"
+              )}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
+        {renderDeleteModal()}
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

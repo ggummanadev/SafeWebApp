@@ -15,6 +15,7 @@ export interface AnalysisResult {
   thumbnail?: string;
   isSafe?: boolean;
   password?: string;
+  mainMenus?: string[];
 }
 
 export interface AppInfo {

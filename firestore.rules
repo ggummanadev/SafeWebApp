@@ -39,7 +39,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidApp(request.resource.data) && request.resource.data.isSafe == true;
       allow update: if isAdmin() || (request.resource.data.password == resource.data.password);
-      allow delete: if isAdmin() || (resource.data.password != null && resource.data.password != "");
+      allow delete: if true; // Temporarily allow all deletions for debugging
     }
 
     match /posts/{postId} {

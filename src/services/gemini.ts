@@ -70,7 +70,7 @@ export async function getAppSummary(url: string, basicReport: string) {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `다음 웹사이트(${url})의 분석 리포트를 바탕으로 앱 이름, 카테고리, 서비스 내용(어떤 서비스인지), 보안 상태 요약, 그리고 '안전한 사이트' 여부(true/false)를 JSON 형식으로 추출해줘.
+      contents: `다음 웹사이트(${url})의 분석 리포트를 바탕으로 앱 이름, 카테고리, 서비스 내용(어떤 서비스인지), 보안 상태 요약, 그리고 '안전한 사이트' 여부(true/false), 그리고 해당 웹사이트의 주요 메뉴 목록(최대 6개)을 JSON 형식으로 추출해줘.
 리포트:
 ${basicReport}
 
@@ -80,7 +80,8 @@ JSON 형식:
   "category": "카테고리 (예: 금융, 쇼핑, 도구 등)",
   "serviceDescription": "어떤 서비스인지에 대한 간단한 설명 (한 문장)",
   "securitySummary": "보안 상태 요약 (한 문장)",
-  "isSafe": true 또는 false (보안상 큰 위협이 없고 신뢰할 수 있는 경우 true)
+  "isSafe": true 또는 false (보안상 큰 위협이 없고 신뢰할 수 있는 경우 true),
+  "mainMenus": ["메뉴1", "메뉴2", "메뉴3", ...]
 }`,
       config: {
         responseMimeType: "application/json"
@@ -90,7 +91,7 @@ JSON 형식:
     return JSON.parse(response.text || "{}");
   } catch (error: any) {
     console.error("Gemini API Error (getAppSummary):", error);
-    return { name: url, category: "기타", serviceDescription: "분석된 웹 서비스", securitySummary: "분석 완료", isSafe: false };
+    return { name: url, category: "기타", serviceDescription: "분석된 웹 서비스", securitySummary: "분석 완료", isSafe: false, mainMenus: [] };
   }
 }
 
