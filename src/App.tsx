@@ -29,6 +29,8 @@ import {
   LogIn,
   LogOut,
   Trash2,
+  Edit2,
+  X,
   Plus,
   ShieldAlert
 } from "lucide-react";
@@ -147,6 +149,14 @@ export default function App() {
   // Expand/Collapse State
   const [isReportExpanded, setIsReportExpanded] = useState(true);
   const [isGuideExpanded, setIsGuideExpanded] = useState(true);
+
+  // Edit Modal State
+  const [appToEdit, setAppToEdit] = useState<AnalysisResult | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", serviceDescription: "", thumbnail: "", category: "" });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Analysis Info State
+  const [activeAnalysisInfo, setActiveAnalysisInfo] = useState<{title: string, desc: string, detail: string, icon: any} | null>(null);
 
   // Auth Listener
   useEffect(() => {
@@ -342,6 +352,40 @@ export default function App() {
     }
   };
 
+  const handleEditClick = (app: AnalysisResult) => {
+    setAppToEdit(app);
+    setEditForm({
+      name: app.name || "",
+      serviceDescription: app.serviceDescription || "",
+      thumbnail: app.thumbnail || "",
+      category: app.category || ""
+    });
+  };
+
+  const handleUpdateApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appToEdit || !appToEdit.id) return;
+    
+    setIsEditing(true);
+    try {
+      await setDoc(doc(db, "apps", appToEdit.id), {
+        ...appToEdit,
+        name: editForm.name,
+        serviceDescription: editForm.serviceDescription,
+        thumbnail: editForm.thumbnail,
+        category: editForm.category
+      }, { merge: true });
+      
+      alert("수정되었습니다.");
+      setAppToEdit(null);
+    } catch (error) {
+      console.error("Update failed", error);
+      alert("수정에 실패했습니다.");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -410,6 +454,12 @@ export default function App() {
   );
 
   const popularApps = storeApps.slice(0, 6);
+
+  const analysisMethods = [
+    { icon: Shield, title: "기초 분석", desc: "구조 및 데이터 민감도 파악", detail: "웹사이트의 기본적인 구조, 사용된 기술 스택, 인증 방식, 그리고 개인정보 요구 수준을 파악하여 기초적인 보안 상태를 점검합니다. 바이브코딩 특유의 패턴이나 OWASP Top 10 취약점 노출 여부도 함께 분석합니다." },
+    { icon: Star, title: "정밀 가이드", desc: "전문 도구 연동 및 가이드", detail: "기초 분석에서 위험 요소가 발견되거나 개인정보 요구가 높은 사이트의 경우, Sucuri, UpGuard, VirusTotal 등 전문 보안 검사 도구를 추천하고 초보자도 쉽게 따라할 수 있는 단계별 정밀 검사 가이드를 제공합니다." },
+    { icon: CheckCircle2, title: "안전 인증", desc: "신뢰할 수 있는 앱 리스트", detail: "분석 결과 보안상 큰 위협이 없고 신뢰할 수 있다고 판명된 웹사이트만 '안전한 사이트'로 분류되어 웹앱 스토어에 등록할 수 있는 자격이 주어집니다. 이를 통해 사용자들은 검증된 앱만 안전하게 이용할 수 있습니다." }
+  ];
 
   const getIcon = (iconName: string) => {
     switch (iconName.toLowerCase()) {
@@ -497,14 +547,14 @@ export default function App() {
         </form>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl mx-auto">
-          {[
-            { icon: Shield, title: "기초 분석", desc: "구조 및 데이터 민감도 파악" },
-            { icon: Star, title: "정밀 가이드", desc: "전문 도구 연동 및 가이드" },
-            { icon: CheckCircle2, title: "안전 인증", desc: "신뢰할 수 있는 앱 리스트" }
-          ].map((item, i) => (
-            <div key={i} className="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-left">
-              <item.icon className="w-8 h-8 text-blue-500 mb-3" />
-              <h3 className="font-bold text-slate-900 mb-1">{item.title}</h3>
+          {analysisMethods.map((item, i) => (
+            <div 
+              key={i} 
+              onClick={() => setActiveAnalysisInfo(item)}
+              className="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-left cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-all group"
+            >
+              <item.icon className="w-8 h-8 text-blue-500 mb-3 group-hover:scale-110 transition-transform" />
+              <h3 className="font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">{item.title}</h3>
               <p className="text-sm text-slate-500">{item.desc}</p>
             </div>
           ))}
@@ -817,6 +867,8 @@ export default function App() {
                       onClick={() => {
                         setCurrentResult(item);
                         setView("result");
+                        setIsReportExpanded(false);
+                        setIsGuideExpanded(false);
                       }}
                     >
                       {item.name}
@@ -826,12 +878,22 @@ export default function App() {
                       <Star className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", item.isDeepVerified ? "text-amber-500 fill-amber-500 saturate-100" : "text-slate-200 grayscale")} />
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleDeleteApp(item)}
-                    className="p-2 text-slate-300 hover:text-red-500 transition-colors md:hidden"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2 md:hidden">
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleEditClick(item)}
+                        className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => handleDeleteApp(item)}
+                      className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-500 mb-2 line-clamp-1">{item.serviceDescription}</p>
                 <div className="flex items-center gap-3">
@@ -845,6 +907,15 @@ export default function App() {
               </div>
 
               <div className="hidden md:flex flex-shrink-0 items-center gap-4">
+                {isAdmin && (
+                  <button 
+                    onClick={() => handleEditClick(item)}
+                    className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
+                    title="수정"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                )}
                 <button 
                   onClick={() => handleDeleteApp(item)}
                   className="p-2 text-slate-300 hover:text-red-500 transition-colors"
@@ -1015,83 +1086,50 @@ export default function App() {
             ))}
           </div>
         </div>
-      </div>
-    );
-  };
 
-  const renderSettings = () => {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-10">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">환경 설정</h2>
-          <p className="text-slate-500">애플리케이션의 주요 설정을 관리합니다.</p>
-        </div>
-
-        <div className="space-y-8">
-          <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <Zap className="w-6 h-6 text-amber-500" />
-              <h3 className="text-xl font-bold text-slate-900">Gemini API 설정</h3>
+        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <Zap className="w-6 h-6 text-amber-500" />
+            <h3 className="text-xl font-bold text-slate-900">Gemini API 설정</h3>
+          </div>
+          
+          <p className="text-slate-600 mb-8 leading-relaxed">
+            Vercel 배포 환경에서 분석 기능이 작동하지 않을 경우, 본인의 Gemini API Key를 입력하여 사용할 수 있습니다.
+            입력된 키는 브라우저의 로컬 스토리지에만 안전하게 저장됩니다.
+          </p>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-3">Gemini API Key</label>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="password"
+                  value={userApiKey}
+                  onChange={(e) => setUserApiKey(e.target.value)}
+                  placeholder="AI Studio에서 발급받은 API Key를 입력하세요"
+                  className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none font-mono text-sm"
+                />
+                <button 
+                  onClick={() => handleSaveApiKey(userApiKey)}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all whitespace-nowrap shadow-lg shadow-blue-100"
+                >
+                  저장하기
+                </button>
+              </div>
             </div>
             
-            <p className="text-slate-600 mb-8 leading-relaxed">
-              Vercel 배포 환경에서 분석 기능이 작동하지 않을 경우, 본인의 Gemini API Key를 입력하여 사용할 수 있습니다.
-              입력된 키는 브라우저의 로컬 스토리지에만 안전하게 저장됩니다.
-            </p>
-            
-            <div className="space-y-6">
+            <div className="flex items-start gap-3 p-5 bg-blue-50 rounded-2xl text-blue-700 text-sm leading-relaxed border border-blue-100">
+              <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-3">Gemini API Key</label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input 
-                    type="password"
-                    value={userApiKey}
-                    onChange={(e) => setUserApiKey(e.target.value)}
-                    placeholder="AI Studio에서 발급받은 API Key를 입력하세요"
-                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none font-mono text-sm"
-                  />
-                  <button 
-                    onClick={() => handleSaveApiKey(userApiKey)}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all whitespace-nowrap shadow-lg shadow-blue-100"
-                  >
-                    저장하기
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3 p-5 bg-blue-50 rounded-2xl text-blue-700 text-sm leading-relaxed border border-blue-100">
-                <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-bold mb-2 text-blue-800">API Key 발급 방법:</p>
-                  <ol className="list-decimal ml-4 space-y-2">
-                    <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-blue-900 transition-colors">Google AI Studio</a>에 접속합니다.</li>
-                    <li>'Create API key' 버튼을 클릭하여 새 키를 발급받습니다.</li>
-                    <li>발급받은 키를 위 입력창에 붙여넣고 저장하세요.</li>
-                  </ol>
-                </div>
+                <p className="font-bold mb-2 text-blue-800">API Key 발급 방법:</p>
+                <ol className="list-decimal ml-4 space-y-2">
+                  <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-blue-900 transition-colors">Google AI Studio</a>에 접속합니다.</li>
+                  <li>'Create API key' 버튼을 클릭하여 새 키를 발급받습니다.</li>
+                  <li>발급받은 키를 위 입력창에 붙여넣고 저장하세요.</li>
+                </ol>
               </div>
             </div>
-          </section>
-
-          <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm opacity-80">
-            <div className="flex items-center gap-3 mb-6">
-              <User className="w-6 h-6 text-slate-400" />
-              <h3 className="text-xl font-bold text-slate-900">사용자 정보</h3>
-            </div>
-            {user ? (
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-slate-400 border border-slate-200 font-bold text-xl">
-                  {user.displayName?.[0]}
-                </div>
-                <div>
-                  <p className="font-bold text-lg text-slate-900">{user.displayName}</p>
-                  <p className="text-slate-500">{user.email}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-slate-500 italic p-4 bg-slate-50 rounded-2xl border border-slate-100">로그인 정보가 없습니다.</p>
-            )}
-          </section>
+          </div>
         </div>
       </div>
     );
@@ -1161,10 +1199,134 @@ export default function App() {
     );
   };
 
+  const renderEditModal = () => {
+    if (!appToEdit) return null;
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+        >
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Edit2 className="w-5 h-5 text-blue-600" />
+              앱 정보 수정
+            </h3>
+            <button 
+              onClick={() => setAppToEdit(null)}
+              className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <form onSubmit={handleUpdateApp} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">앱 이름</label>
+              <input 
+                type="text" 
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">카테고리</label>
+              <input 
+                type="text" 
+                value={editForm.category}
+                onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">서비스 설명</label>
+              <textarea 
+                value={editForm.serviceDescription}
+                onChange={(e) => setEditForm(prev => ({ ...prev, serviceDescription: e.target.value }))}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none min-h-[80px]"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">썸네일 URL</label>
+              <input 
+                type="url" 
+                value={editForm.thumbnail}
+                onChange={(e) => setEditForm(prev => ({ ...prev, thumbnail: e.target.value }))}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 pt-4">
+              <button 
+                type="button"
+                onClick={() => setAppToEdit(null)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                취소
+              </button>
+              <button 
+                type="submit"
+                disabled={isEditing}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isEditing ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const renderAnalysisInfoModal = () => {
+    if (!activeAnalysisInfo) return null;
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
+        >
+          <div className="p-8 text-center relative">
+            <button 
+              onClick={() => setActiveAnalysisInfo(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <activeAnalysisInfo.icon className="w-8 h-8 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">{activeAnalysisInfo.title}</h3>
+            <p className="text-sm font-bold text-blue-600 mb-4">{activeAnalysisInfo.desc}</p>
+            <p className="text-slate-600 text-sm leading-relaxed text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
+              {activeAnalysisInfo.detail}
+            </p>
+            <button 
+              onClick={() => setActiveAnalysisInfo(null)}
+              className="mt-6 w-full px-4 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
         {renderDeleteModal()}
+        {renderEditModal()}
+        {renderAnalysisInfoModal()}
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1211,16 +1373,6 @@ export default function App() {
                   관리자
                 </button>
               )}
-              <button 
-                onClick={() => setView("settings")}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                  view === "settings" ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-slate-50"
-                )}
-                title="설정"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
               
               <div className="h-6 w-px bg-slate-200 mx-2" />
               
@@ -1311,16 +1463,6 @@ export default function App() {
                     관리자
                   </button>
                 )}
-                <button 
-                  onClick={() => { setView("settings"); setIsMenuOpen(false); }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold transition-all",
-                    view === "settings" ? "bg-blue-50 text-blue-600" : "text-slate-600 bg-slate-50"
-                  )}
-                >
-                  <Settings className="w-5 h-5" />
-                  설정
-                </button>
                 {!user && (
                   <button 
                     onClick={() => { handleLogin(); setIsMenuOpen(false); }}
@@ -1397,16 +1539,6 @@ export default function App() {
               exit={{ opacity: 0 }}
             >
               {renderAdmin()}
-            </motion.div>
-          )}
-          {view === "settings" && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {renderSettings()}
             </motion.div>
           )}
         </AnimatePresence>
