@@ -36,6 +36,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+// @ts-ignore
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { cn } from "./lib/utils";
 import { getBasicAnalysis, getDeepAnalysisGuide, getAppSummary, getStructuredAnalysis, getOwaspAnalysis } from "./services/gemini";
 import { AnalysisResult, Post, AppInfo, AdminSettings } from "./types";
@@ -392,7 +396,7 @@ export default function App() {
       alert("로그인이 필요합니다.");
       return;
     }
-    if (!newPostTitle || !newPostContent) return;
+    if (!newPostTitle || !newPostContent || newPostContent === '<p><br></p>') return;
 
     setIsPosting(true);
     try {
@@ -746,8 +750,8 @@ export default function App() {
               className="overflow-hidden"
             >
               <div className="p-6 sm:p-8 prose prose-slate max-w-none">
-                <div className="markdown-body">
-                  <Markdown>{currentResult.basicReport}</Markdown>
+                <div className="markdown-body whitespace-pre-wrap">
+                  <Markdown remarkPlugins={[remarkBreaks]}>{currentResult.basicReport}</Markdown>
                 </div>
               </div>
             </motion.div>
@@ -799,8 +803,8 @@ export default function App() {
               className="overflow-hidden"
             >
               <div className="p-6 sm:p-8 prose prose-amber max-w-none bg-amber-50/30">
-                <div className="markdown-body">
-                  <Markdown>{currentResult.deepGuide}</Markdown>
+                <div className="markdown-body whitespace-pre-wrap">
+                  <Markdown remarkPlugins={[remarkBreaks]}>{currentResult.deepGuide}</Markdown>
                 </div>
               </div>
             </motion.div>
@@ -964,13 +968,14 @@ export default function App() {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
               required
             />
-            <textarea 
-              placeholder="내용을 입력하세요"
-              value={newPostContent}
-              onChange={(e) => setNewPostContent(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none min-h-[120px]"
-              required
-            />
+            <div className="bg-white rounded-xl overflow-hidden border border-slate-100">
+              <ReactQuill 
+                theme="snow" 
+                value={newPostContent} 
+                onChange={setNewPostContent} 
+                className="h-48 mb-12"
+              />
+            </div>
             <div className="flex justify-end">
               <button 
                 type="submit"
@@ -1022,7 +1027,7 @@ export default function App() {
                 </button>
               )}
             </div>
-            <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+            <div className="text-slate-600 leading-relaxed prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: post.content }} />
           </motion.div>
         ))}
       </div>
@@ -1339,7 +1344,7 @@ export default function App() {
               }}
             >
               <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">웹앱모음</span>
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">안전웹앱</span>
             </div>
             
             {/* Desktop Navigation */}
@@ -1489,6 +1494,21 @@ export default function App() {
         </AnimatePresence>
       </nav>
 
+      {/* Quick Shortcuts */}
+      <div className="bg-white border-b border-slate-200 py-3 px-4 flex justify-center gap-4 sm:gap-8 overflow-x-auto shadow-sm sticky top-[64px] z-40">
+        <button onClick={() => setView("store")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
+          <AppWindow className="w-4 h-4" /> 웹앱 스토어
+        </button>
+        <button onClick={() => setView("community")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
+          <MessageSquare className="w-4 h-4" /> 커뮤니티
+        </button>
+        {isAdmin && (
+          <button onClick={() => setView("admin")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
+            <Settings className="w-4 h-4" /> 관리자
+          </button>
+        )}
+      </div>
+
       <main className="py-6">
         <AnimatePresence mode="wait">
           {view === "home" && (
@@ -1548,7 +1568,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
             <ShieldCheck className="w-5 h-5" />
-            <span className="font-bold">웹앱모음 (SafeWebApp)</span>
+            <span className="font-bold">안전웹앱 (SafeWebApp)</span>
           </div>
           <p className="text-sm text-slate-400">
             &copy; 2026 SafeWebApp. Google AI Studio (Gemini) 기반 보안 분석 서비스.
