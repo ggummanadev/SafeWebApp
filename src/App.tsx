@@ -32,7 +32,8 @@ import {
   Edit2,
   X,
   Plus,
-  ShieldAlert
+  ShieldAlert,
+  Upload
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
@@ -139,6 +140,7 @@ export default function App() {
   const [storeSearch, setStoreSearch] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [regPassword, setRegPassword] = useState("");
+  const [uploadedThumbnail, setUploadedThumbnail] = useState<string | null>(null);
   
   // Community State
   const [newPostTitle, setNewPostTitle] = useState("");
@@ -287,6 +289,51 @@ export default function App() {
     }
   };
 
+  const handleThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Compress to JPEG to save space
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setUploadedThumbnail(dataUrl);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleRegisterToStore = async () => {
     if (!currentResult || !regPassword) return;
     if (regPassword.length < 4) {
@@ -303,6 +350,7 @@ export default function App() {
         .replace(/=/g, "");
       await setDoc(doc(db, "apps", appId), {
         ...currentResult,
+        thumbnail: uploadedThumbnail || currentResult.thumbnail,
         password: regPassword,
         timestamp: Date.now()
       });
@@ -314,6 +362,7 @@ export default function App() {
     } finally {
       setIsRegistering(false);
       setRegPassword("");
+      setUploadedThumbnail(null);
     }
   };
 
@@ -364,6 +413,51 @@ export default function App() {
       thumbnail: app.thumbnail || "",
       category: app.category || ""
     });
+  };
+
+  const handleEditThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Compress to JPEG to save space
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setEditForm(prev => ({ ...prev, thumbnail: dataUrl }));
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateApp = async (e: React.FormEvent) => {
@@ -689,6 +783,24 @@ export default function App() {
                   <p className="text-xs sm:text-sm font-bold">안전한 사이트로 판명되어 스토어 등록이 가능합니다.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleThumbnailUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        title="썸네일 이미지 업로드"
+                      />
+                      <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        {uploadedThumbnail ? "썸네일 변경" : "썸네일 업로드"}
+                      </button>
+                    </div>
+                    {uploadedThumbnail && (
+                      <img src={uploadedThumbnail} alt="Thumbnail preview" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+                    )}
+                  </div>
                   <input 
                     type="password" 
                     placeholder="등록 비밀번호"
@@ -1258,13 +1370,25 @@ export default function App() {
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">썸네일 URL</label>
-              <input 
-                type="url" 
-                value={editForm.thumbnail}
-                onChange={(e) => setEditForm(prev => ({ ...prev, thumbnail: e.target.value }))}
-                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-              />
+              <label className="block text-sm font-bold text-slate-700 mb-1">썸네일</label>
+              <div className="flex items-center gap-4">
+                {editForm.thumbnail && (
+                  <img src={editForm.thumbnail} alt="Thumbnail preview" className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0" />
+                )}
+                <div className="relative flex-1">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleEditThumbnailUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    title="썸네일 이미지 업로드"
+                  />
+                  <button type="button" className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    썸네일 이미지 업로드
+                  </button>
+                </div>
+              </div>
             </div>
             
             <div className="flex gap-3 pt-4">
