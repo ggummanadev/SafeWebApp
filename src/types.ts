@@ -16,6 +16,7 @@ export interface AnalysisResult {
   isSafe?: boolean;
   password?: string;
   mainMenus?: string[];
+  isHidden?: boolean;
 }
 
 export interface AppInfo {

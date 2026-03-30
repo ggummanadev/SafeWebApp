@@ -33,7 +33,9 @@ import {
   X,
   Plus,
   ShieldAlert,
-  Upload
+  Upload,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
@@ -550,11 +552,25 @@ export default function App() {
     }
   };
 
+  const handleToggleHide = async (app: AnalysisResult) => {
+    if (!isAdmin || !app.id) return;
+    try {
+      await updateDoc(doc(db, "apps", app.id), {
+        isHidden: !app.isHidden
+      });
+      alert(app.isHidden ? "노출이 활성화되었습니다." : "노출이 중지되었습니다.");
+    } catch (e) {
+      console.error("Toggle hide failed", e);
+      alert("상태 변경에 실패했습니다.");
+    }
+  };
+
   const filteredApps = storeApps.filter(app => {
     const matchesSearch = app.name.toLowerCase().includes(storeSearch.toLowerCase()) ||
       app.serviceDescription.toLowerCase().includes(storeSearch.toLowerCase());
     const matchesCategory = selectedCategory === "전체" || app.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesVisibility = isAdmin || !app.isHidden;
+    return matchesSearch && matchesCategory && matchesVisibility;
   });
 
   const categories = useMemo(() => {
@@ -562,7 +578,9 @@ export default function App() {
     return ["전체", ...Array.from(cats)];
   }, [storeApps]);
 
-  const popularApps = storeApps.slice(0, 6);
+  const popularApps = storeApps
+    .filter(app => isAdmin || !app.isHidden)
+    .slice(0, 6);
 
   const analysisMethods = [
     { icon: Shield, title: "기초 분석", desc: "구조 및 데이터 민감도 파악", detail: "웹사이트의 기본적인 구조, 사용된 기술 스택, 인증 방식, 그리고 개인정보 요구 수준을 파악하여 기초적인 보안 상태를 점검합니다. 바이브코딩 특유의 패턴이나 OWASP Top 10 취약점 노출 여부도 함께 분석합니다." },
@@ -1044,6 +1062,11 @@ export default function App() {
                     >
                       {item.name}
                     </h3>
+                    {item.isHidden && isAdmin && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold uppercase tracking-wider shrink-0">
+                        숨김
+                      </span>
+                    )}
                     <div className="flex gap-1 shrink-0">
                       <CheckCircle2 className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", item.isBasicVerified ? "text-green-500 saturate-100" : "text-slate-200 grayscale")} />
                       <Star className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", item.isDeepVerified ? "text-amber-500 fill-amber-500 saturate-100" : "text-slate-200 grayscale")} />
@@ -1051,12 +1074,21 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 md:hidden">
                     {isAdmin && (
-                      <button 
-                        onClick={() => handleEditClick(item)}
-                        className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => handleToggleHide(item)}
+                          className={cn("p-2 transition-colors", item.isHidden ? "text-amber-500 hover:text-amber-600" : "text-slate-300 hover:text-blue-500")}
+                          title={item.isHidden ? "노출 활성화" : "노출 중지"}
+                        >
+                          {item.isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <button 
+                          onClick={() => handleEditClick(item)}
+                          className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     <button 
                       onClick={() => handleDeleteApp(item)}
@@ -1079,13 +1111,22 @@ export default function App() {
 
               <div className="hidden md:flex flex-shrink-0 items-center gap-4">
                 {isAdmin && (
-                  <button 
-                    onClick={() => handleEditClick(item)}
-                    className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
-                    title="수정"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => handleToggleHide(item)}
+                      className={cn("p-2 transition-colors", item.isHidden ? "text-amber-500 hover:text-amber-600" : "text-slate-300 hover:text-blue-500")}
+                      title={item.isHidden ? "노출 활성화" : "노출 중지"}
+                    >
+                      {item.isHidden ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                    <button 
+                      onClick={() => handleEditClick(item)}
+                      className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
+                      title="수정"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => handleDeleteApp(item)}

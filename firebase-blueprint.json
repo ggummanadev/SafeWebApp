@@ -18,7 +18,8 @@
         "timestamp": { "type": "number" },
         "thumbnail": { "type": "string" },
         "password": { "type": "string" },
-        "isSafe": { "type": "boolean" }
+        "isSafe": { "type": "boolean" },
+        "isHidden": { "type": "boolean" }
       },
       "required": ["url", "name", "password", "isSafe"]
     },

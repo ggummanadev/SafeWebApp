@@ -36,10 +36,10 @@ service cloud.firestore {
     // ===============================================================
 
     match /apps/{appId} {
-      allow read: if true;
+      allow read: if (resource == null || !('isHidden' in resource.data) || resource.data.isHidden == false || isAdmin());
       allow create: if isValidApp(request.resource.data) && request.resource.data.isSafe == true;
       allow update: if isAdmin() || (request.resource.data.password == resource.data.password);
-      allow delete: if true; // Temporarily allow all deletions for debugging
+      allow delete: if isAdmin() || (request.resource.data.password == resource.data.password);
     }
 
     match /posts/{postId} {
