@@ -38,9 +38,10 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 // @ts-ignore
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 import { cn } from "./lib/utils";
 import { getBasicAnalysis, getDeepAnalysisGuide, getAppSummary, getStructuredAnalysis, getOwaspAnalysis } from "./services/gemini";
 import { AnalysisResult, Post, AppInfo, AdminSettings } from "./types";
@@ -69,9 +70,10 @@ import {
 } from "./firebase";
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  state = { hasError: false, error: null };
+
   constructor(props: any) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: any) {
@@ -113,6 +115,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
       );
     }
 
+    // @ts-ignore
     return this.props.children;
   }
 }
@@ -720,7 +723,7 @@ export default function App() {
                   {currentResult.category}
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2 truncate">{currentResult.name}</h2>
-                <p className="text-slate-600 font-medium mb-3 text-sm sm:text-base">{currentResult.serviceDescription}</p>
+                <p className="text-slate-600 font-medium mb-3 text-sm sm:text-base whitespace-pre-wrap">{currentResult.serviceDescription}</p>
                 <p className="text-slate-400 text-xs sm:text-sm flex items-center gap-1 overflow-hidden">
                   <ExternalLink className="w-4 h-4 shrink-0" />
                   <a href={currentResult.url} target="_blank" rel="noreferrer" className="hover:underline truncate">
@@ -771,12 +774,12 @@ export default function App() {
                 <Shield className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">보안 상태 요약</h4>
-                  <p className="text-slate-600 text-sm leading-relaxed">{currentResult.securitySummary}</p>
+                  <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{currentResult.securitySummary}</p>
                 </div>
               </div>
             </div>
 
-            {currentResult.isSafe && (
+            {currentResult.isSafe ? (
               <div className="pt-6 border-t border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <ShieldCheck className="w-5 h-5 shrink-0" />
@@ -816,6 +819,19 @@ export default function App() {
                     {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     웹앱 스토어 등록
                   </button>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-6 border-t border-slate-100">
+                <div className="p-5 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-red-900 text-lg mb-1">분석 결과: 부적합 (Unsuitable)</h4>
+                    <p className="text-red-700 text-sm leading-relaxed font-medium">
+                      해당 사이트는 도박, 성인, 불법 공유 또는 피싱 의심 요소가 발견되어 안전하지 않은 사이트로 분류되었습니다. 
+                      보안 및 정책상의 이유로 웹앱 스토어 등록이 불가능합니다.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -863,7 +879,7 @@ export default function App() {
             >
               <div className="p-6 sm:p-8 prose prose-slate max-w-none">
                 <div className="markdown-body whitespace-pre-wrap">
-                  <Markdown remarkPlugins={[remarkBreaks]}>{currentResult.basicReport}</Markdown>
+                  <Markdown remarkPlugins={[remarkBreaks, remarkGfm]}>{currentResult.basicReport}</Markdown>
                 </div>
               </div>
             </motion.div>
@@ -916,7 +932,17 @@ export default function App() {
             >
               <div className="p-6 sm:p-8 prose prose-amber max-w-none bg-amber-50/30">
                 <div className="markdown-body whitespace-pre-wrap">
-                  <Markdown remarkPlugins={[remarkBreaks]}>{currentResult.deepGuide}</Markdown>
+                  {currentResult.deepGuide ? (
+                    <Markdown remarkPlugins={[remarkBreaks, remarkGfm]}>{currentResult.deepGuide}</Markdown>
+                  ) : (
+                    <div className="text-slate-700 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        정밀 분석 가이드 미진행
+                      </p>
+                      <p className="leading-relaxed">해당 사이트는 기초 분석 결과 보안상 큰 위협이 발견되지 않은 안전한 사이트로 판명되어, 추가적인 정밀 분석 가이드를 진행하지 않았습니다.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1618,21 +1644,6 @@ export default function App() {
         </AnimatePresence>
       </nav>
 
-      {/* Quick Shortcuts */}
-      <div className="bg-white border-b border-slate-200 py-3 px-4 flex justify-center gap-4 sm:gap-8 overflow-x-auto shadow-sm sticky top-[64px] z-40">
-        <button onClick={() => setView("store")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
-          <AppWindow className="w-4 h-4" /> 웹앱 스토어
-        </button>
-        <button onClick={() => setView("community")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
-          <MessageSquare className="w-4 h-4" /> 커뮤니티
-        </button>
-        {isAdmin && (
-          <button onClick={() => setView("admin")} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors whitespace-nowrap">
-            <Settings className="w-4 h-4" /> 관리자
-          </button>
-        )}
-      </div>
-
       <main className="py-6">
         <AnimatePresence mode="wait">
           {view === "home" && (
@@ -1690,6 +1701,13 @@ export default function App() {
 
       <footer className="py-12 border-t border-slate-200 mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8 max-w-3xl mx-auto">
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              <span className="font-bold text-slate-700 block mb-2">⚠️ 서비스 이용 및 등록 안내</span>
+              분석 후 등록된 웹앱 및 웹사이트는 실시간 확인되며 
+              도박, 포르노, 불법영상공유, 불법웹툰 및 만화공유, 불법 이미지 및 생성형 페이크이미지 공유사이트 는 등록이 안되거나, 등록 후에도 안내없이 삭제될 수 있습니다.
+            </p>
+          </div>
           <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
             <ShieldCheck className="w-5 h-5" />
             <span className="font-bold">안전웹앱 (SafeWebApp)</span>
